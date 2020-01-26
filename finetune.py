@@ -20,15 +20,15 @@ import tensorflow as tf
 from alexnet import AlexNet
 from datagenerator import ImageDataGenerator
 from datetime import datetime
-from tensorflow.contrib.data import Iterator
+from tensorflow.data import Iterator
 
 """
 Configuration Part.
 """
 
 # Path to the textfiles for the trainings and validation set
-train_file = '/path/to/train.txt'
-val_file = '/path/to/val.txt'
+train_file = 'train.txt'
+val_file = 'val.txt'
 
 # Learning params
 learning_rate = 0.01
@@ -44,8 +44,8 @@ train_layers = ['fc8', 'fc7', 'fc6']
 display_step = 20
 
 # Path for tf.summary.FileWriter and to store model checkpoints
-filewriter_path = "/tmp/finetune_alexnet/tensorboard"
-checkpoint_path = "/tmp/finetune_alexnet/checkpoints"
+filewriter_path = "output/tensorboard"
+checkpoint_path = "output/checkpoints"
 
 """
 Main Part of the finetuning Script.
@@ -93,8 +93,7 @@ var_list = [v for v in tf.trainable_variables() if v.name.split('/')[0] in train
 
 # Op for calculating the loss
 with tf.name_scope("cross_ent"):
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=score,
-                                                                  labels=y))
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=score, labels=y))
 
 # Train op
 with tf.name_scope("train"):
@@ -104,6 +103,8 @@ with tf.name_scope("train"):
 
     # Create optimizer and apply gradient descent to the trainable variables
     optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+
+    use_tensorcores = os.environ.get('USE_TENSORCORES')
     train_op = optimizer.apply_gradients(grads_and_vars=gradients)
 
 # Add gradients to summary
@@ -136,8 +137,10 @@ writer = tf.summary.FileWriter(filewriter_path)
 saver = tf.train.Saver()
 
 # Get the number of training/validation steps per epoch
-train_batches_per_epoch = int(np.floor(tr_data.data_size/batch_size))
+train_batches_per_epoch = int(np.floor(tr_data.data_size / batch_size)) 
 val_batches_per_epoch = int(np.floor(val_data.data_size / batch_size))
+
+print('data', tr_data.data_size, val_data.data_size)
 
 # Start Tensorflow session
 with tf.Session() as sess:
@@ -158,7 +161,7 @@ with tf.Session() as sess:
     # Loop over number of epochs
     for epoch in range(num_epochs):
 
-        print("{} Epoch number: {}".format(datetime.now(), epoch+1))
+        print("{} Epoch number: {}".format(datetime.now(), epoch + 1))
 
         # Initialize iterator with the training dataset
         sess.run(training_init_op)
@@ -179,7 +182,7 @@ with tf.Session() as sess:
                                                         y: label_batch,
                                                         keep_prob: 1.})
 
-                writer.add_summary(s, epoch*train_batches_per_epoch + step)
+                writer.add_summary(s, epoch * train_batches_per_epoch + step)
 
         # Validate the model on the entire validation set
         print("{} Start validation".format(datetime.now()))
@@ -200,8 +203,7 @@ with tf.Session() as sess:
         print("{} Saving checkpoint of model...".format(datetime.now()))
 
         # save checkpoint of the model
-        checkpoint_name = os.path.join(checkpoint_path,
-                                       'model_epoch'+str(epoch+1)+'.ckpt')
+        checkpoint_name = os.path.join(checkpoint_path, 'model_epoch' + str(epoch + 1) + '.ckpt')
         save_path = saver.save(sess, checkpoint_name)
 
         print("{} Model checkpoint saved at {}".format(datetime.now(),
